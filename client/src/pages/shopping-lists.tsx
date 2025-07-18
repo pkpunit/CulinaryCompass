@@ -16,24 +16,20 @@ export default function ShoppingLists() {
   const [newListName, setNewListName] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const userId = "demo-user";
-
   const { data: shoppingLists = [], isLoading } = useQuery({
-    queryKey: ["/api/shopping-lists", userId],
+    queryKey: ["/api/shopping-lists"],
   });
 
   // Create new shopping list
   const createListMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/shopping-lists", {
-        userId,
         name: newListName || "New Shopping List",
         items: [],
-        createdAt: new Date().toISOString(),
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shopping-lists", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shopping-lists"] });
       setIsCreateModalOpen(false);
       setNewListName("");
       toast({
@@ -56,7 +52,7 @@ export default function ShoppingLists() {
       return apiRequest("PUT", `/api/shopping-lists/${listId}`, { items });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shopping-lists", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shopping-lists"] });
     },
     onError: () => {
       toast({
@@ -73,7 +69,7 @@ export default function ShoppingLists() {
       return apiRequest("DELETE", `/api/shopping-lists/${listId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shopping-lists", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shopping-lists"] });
       toast({
         title: "Shopping list deleted",
         description: "The shopping list has been deleted successfully",

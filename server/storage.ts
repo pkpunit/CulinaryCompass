@@ -1,6 +1,28 @@
-import { recipes, userFavorites, shoppingLists, type Recipe, type InsertRecipe, type UserFavorite, type InsertUserFavorite, type ShoppingList, type InsertShoppingList } from "@shared/schema";
+import { 
+  recipes, 
+  userFavorites, 
+  shoppingLists, 
+  users,
+  type Recipe, 
+  type InsertRecipe, 
+  type UserFavorite, 
+  type InsertUserFavorite, 
+  type ShoppingList, 
+  type InsertShoppingList,
+  type User,
+  type InsertUser 
+} from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export interface IStorage {
+  // User methods
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
   // Recipe methods
   getAllRecipes(): Promise<Recipe[]>;
   getRecipeById(id: number): Promise<Recipe | undefined>;
@@ -8,35 +30,119 @@ export interface IStorage {
   searchRecipesByIngredients(ingredients: string[]): Promise<Recipe[]>;
   
   // Favorites methods
-  getUserFavorites(userId: string): Promise<Recipe[]>;
+  getUserFavorites(userId: number): Promise<Recipe[]>;
   addToFavorites(favorite: InsertUserFavorite): Promise<UserFavorite>;
-  removeFromFavorites(userId: string, recipeId: number): Promise<void>;
+  removeFromFavorites(userId: number, recipeId: number): Promise<void>;
   
   // Shopping list methods
-  getUserShoppingLists(userId: string): Promise<ShoppingList[]>;
+  getUserShoppingLists(userId: number): Promise<ShoppingList[]>;
   createShoppingList(list: InsertShoppingList): Promise<ShoppingList>;
   updateShoppingList(id: number, items: any[]): Promise<void>;
   deleteShoppingList(id: number): Promise<void>;
+}
+
+export class DatabaseStorage implements IStorage {
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(user.passwordHash, saltRounds);
+    
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        ...user,
+        passwordHash: hashedPassword,
+      })
+      .returning();
+    return newUser;
+  }
+
+  // TODO: Implement database methods for recipes, favorites, and shopping lists
+  async getAllRecipes(): Promise<Recipe[]> { throw new Error("Not implemented"); }
+  async getRecipeById(id: number): Promise<Recipe | undefined> { throw new Error("Not implemented"); }
+  async createRecipe(recipe: InsertRecipe): Promise<Recipe> { throw new Error("Not implemented"); }
+  async searchRecipesByIngredients(ingredients: string[]): Promise<Recipe[]> { throw new Error("Not implemented"); }
+  async getUserFavorites(userId: number): Promise<Recipe[]> { throw new Error("Not implemented"); }
+  async addToFavorites(favorite: InsertUserFavorite): Promise<UserFavorite> { throw new Error("Not implemented"); }
+  async removeFromFavorites(userId: number, recipeId: number): Promise<void> { throw new Error("Not implemented"); }
+  async getUserShoppingLists(userId: number): Promise<ShoppingList[]> { throw new Error("Not implemented"); }
+  async createShoppingList(list: InsertShoppingList): Promise<ShoppingList> { throw new Error("Not implemented"); }
+  async updateShoppingList(id: number, items: any[]): Promise<void> { throw new Error("Not implemented"); }
+  async deleteShoppingList(id: number): Promise<void> { throw new Error("Not implemented"); }
 }
 
 export class MemStorage implements IStorage {
   private recipes: Map<number, Recipe>;
   private userFavorites: Map<number, UserFavorite>;
   private shoppingLists: Map<number, ShoppingList>;
+  private users: Map<number, User>;
   private currentRecipeId: number;
   private currentFavoriteId: number;
   private currentListId: number;
+  private currentUserId: number;
 
   constructor() {
     this.recipes = new Map();
     this.userFavorites = new Map();
     this.shoppingLists = new Map();
+    this.users = new Map();
     this.currentRecipeId = 1;
     this.currentFavoriteId = 1;
     this.currentListId = 1;
+    this.currentUserId = 1;
     
     // Initialize with sample recipes
     this.initializeRecipes();
+  }
+
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const usersArray = Array.from(this.users.values());
+    return usersArray.find(user => user.username === username);
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const usersArray = Array.from(this.users.values());
+    return usersArray.find(user => user.email === email);
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(user.passwordHash, saltRounds);
+    
+    const id = this.currentUserId++;
+    const newUser: User = {
+      id,
+      username: user.username,
+      email: user.email,
+      passwordHash: hashedPassword,
+      firstName: user.firstName || null,
+      lastName: user.lastName || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.users.set(id, newUser);
+    return newUser;
   }
 
   private initializeRecipes() {
@@ -213,7 +319,7 @@ export class MemStorage implements IStorage {
       .map(item => item.recipe);
   }
 
-  async getUserFavorites(userId: string): Promise<Recipe[]> {
+  async getUserFavorites(userId: number): Promise<Recipe[]> {
     const userFavs = Array.from(this.userFavorites.values())
       .filter(fav => fav.userId === userId);
     
@@ -242,7 +348,7 @@ export class MemStorage implements IStorage {
     return newFavorite;
   }
 
-  async removeFromFavorites(userId: string, recipeId: number): Promise<void> {
+  async removeFromFavorites(userId: number, recipeId: number): Promise<void> {
     const entries = Array.from(this.userFavorites.entries());
     for (const [id, fav] of entries) {
       if (fav.userId === userId && fav.recipeId === recipeId) {
@@ -252,7 +358,7 @@ export class MemStorage implements IStorage {
     }
   }
 
-  async getUserShoppingLists(userId: string): Promise<ShoppingList[]> {
+  async getUserShoppingLists(userId: number): Promise<ShoppingList[]> {
     return Array.from(this.shoppingLists.values())
       .filter(list => list.userId === userId);
   }
