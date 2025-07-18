@@ -16,11 +16,9 @@ interface RecipeCardProps {
 export default function RecipeCard({ recipe, userIngredients, onViewRecipe }: RecipeCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const userId = "demo-user"; // In a real app, this would come from auth
-
   // Query to check if recipe is favorited
   const { data: favorites = [] } = useQuery({
-    queryKey: ["/api/favorites", userId],
+    queryKey: ["/api/favorites"],
   });
 
   const isFavorited = favorites.some((fav: Recipe) => fav.id === recipe.id);
@@ -41,16 +39,15 @@ export default function RecipeCard({ recipe, userIngredients, onViewRecipe }: Re
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
       if (isFavorited) {
-        return apiRequest("DELETE", `/api/favorites/${userId}/${recipe.id}`);
+        return apiRequest("DELETE", `/api/favorites/${recipe.id}`);
       } else {
         return apiRequest("POST", "/api/favorites", {
-          userId,
           recipeId: recipe.id,
         });
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/favorites", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
       toast({
         title: isFavorited ? "Removed from favorites" : "Added to favorites",
         description: isFavorited 

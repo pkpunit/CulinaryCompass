@@ -29,11 +29,10 @@ interface RecipeModalProps {
 export default function RecipeModal({ recipe, isOpen, onClose, userIngredients }: RecipeModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const userId = "demo-user";
 
   // Query to check if recipe is favorited
   const { data: favorites = [] } = useQuery({
-    queryKey: ["/api/favorites", userId],
+    queryKey: ["/api/favorites"],
   });
 
   const isFavorited = recipe ? favorites.some((fav: Recipe) => fav.id === recipe.id) : false;
@@ -43,16 +42,15 @@ export default function RecipeModal({ recipe, isOpen, onClose, userIngredients }
     mutationFn: async () => {
       if (!recipe) return;
       if (isFavorited) {
-        return apiRequest("DELETE", `/api/favorites/${userId}/${recipe.id}`);
+        return apiRequest("DELETE", `/api/favorites/${recipe.id}`);
       } else {
         return apiRequest("POST", "/api/favorites", {
-          userId,
           recipeId: recipe.id,
         });
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/favorites", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
       toast({
         title: isFavorited ? "Removed from favorites" : "Added to favorites",
         description: isFavorited 
@@ -88,14 +86,12 @@ export default function RecipeModal({ recipe, isOpen, onClose, userIngredients }
       }));
 
       return apiRequest("POST", "/api/shopping-lists", {
-        userId,
         name: `Shopping list for ${recipe.title}`,
         items,
-        createdAt: new Date().toISOString(),
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shopping-lists", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shopping-lists"] });
       toast({
         title: "Shopping list created",
         description: "Missing ingredients have been added to your shopping list",

@@ -12,10 +12,8 @@ export default function Favorites() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("Recently Added");
-  const userId = "demo-user";
-
   const { data: favorites = [], isLoading } = useQuery({
-    queryKey: ["/api/favorites", userId],
+    queryKey: ["/api/favorites"],
   });
 
   // Filter favorites based on search term
